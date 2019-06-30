@@ -1,0 +1,118 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Collections.Concurrent;
+namespace Dashboard
+{
+    public partial class PortfoliosForm : Form
+    {
+        public static ConcurrentQueue<Object> PortfoliosFormsUpdates = new ConcurrentQueue<Object>();
+
+        public bool IsFormOpen { get; set; }
+
+        public PortfoliosForm()
+        {
+            InitializeComponent();
+            IsFormOpen = false;
+           
+        }
+       
+        
+       
+        //private void LoadFolioPositionsData(DataGridView dataGridView,string folio_name)
+        //{
+
+        //    DataTable data_table = NewPositionViewDataTable(dataGridView);
+        //    dataGridView.DataSource = data_table;
+
+           
+        //}
+       
+        private void Config_columns_Click(object sender, EventArgs e)
+        {
+            TabPage tab = tabControl_portfolios.SelectedTab;
+            foreach (Control control in tab.Controls)
+            {
+                if (control.Name == "dataGridView")
+                {
+                    DataGridView view = (DataGridView)control;
+                  
+                    ConfigColumnsForm config_form = new ConfigColumnsForm(view.Columns);
+                   // portfolios_form.MdiParent = this;
+                    config_form.Text = "Configuration";
+                    config_form.ShowDialog(this);
+                }
+            }
+        }
+
+        private void PortfoliosForm_Shown(object sender, EventArgs e)
+        {
+            IsFormOpen = true;
+            backgroundWorker.RunWorkerAsync();
+        }
+
+        private void PortfoliosForm_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            IsFormOpen = false;
+            
+        }
+
+        private void BackgroundWorker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            //runs on a different thread
+            while (false == backgroundWorker.CancellationPending)
+            {
+
+                if (false == PortfoliosFormsUpdates.IsEmpty)
+                {
+                    Object obj = new Object();
+                    if (PortfoliosFormsUpdates.TryDequeue(out obj))
+                    {
+                        BackgroundWorker worker = (BackgroundWorker)sender;
+                        worker.ReportProgress(0, obj);
+                    }
+                }
+            }
+            e.Result = "cancelled";
+        }
+
+        private void BackgroundWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            //runs on UI thread
+            if (e.UserState is PriceUpdate)
+            {
+                PriceUpdate price = (PriceUpdate)e.UserState;
+                UpdatePricesInDataGrids(price);
+            }
+            else if (e.UserState is Position)
+            {
+                Position pos = (Position)e.UserState;
+                UpdatePositionInDataGrids(pos);
+                
+
+            }
+            else
+            if (e.UserState is Security)
+            {
+                Security sec = (Security)e.UserState;
+               UpdateStaticDataInDataGrids(sec);
+              
+            }
+            else
+            {
+                //issue with data type in queue
+            }
+        }
+
+        private void BackgroundWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+
+        }
+    }
+}
